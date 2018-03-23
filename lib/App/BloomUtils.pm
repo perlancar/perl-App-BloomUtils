@@ -122,7 +122,7 @@ sub check_with_bloom_filter {
 
 $SPEC{bloom_filter_calculator} = {
     v => 1.1,
-    summary => 'Help calculate num_bits (n) and num_hashes (k)',
+    summary => 'Help calculate num_bits (m) and num_hashes (k)',
     description => <<'_',
 
 Bloom filter is setup using two parameters: `num_bits` (`m`) which is the size
