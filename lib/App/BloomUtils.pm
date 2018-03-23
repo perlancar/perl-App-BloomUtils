@@ -187,10 +187,15 @@ sub bloom_filter_calculator {
 
     [200, "OK", {
         num_bits   => $num_bits,
+        m          => $num_bits,
         num_items  => $num_items,
+        n          => $num_items,
         num_hashes => $num_hashes,
+        k          => $num_hashes,
         fp_rate    => $fp_rate,
+        p          => $fp_rate,
         num_bits_per_item => $num_bits / $num_items,
+        'm/n'             => $num_bits / $num_items,
     }];
 }
 
