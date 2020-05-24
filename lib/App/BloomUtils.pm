@@ -130,8 +130,8 @@ sub gen_bloom_filter {
     return $res unless $res->[0] == 200;
     my $m = $args{num_bits} // $res->[2]{actual_m};
     my $k = $args{num_hashes} // $res->[2]{actual_k};
-    log_info "Will be creating bloom filter with num_bits (m)=%d, num_hashes (k)=%d, actual false-positive rate=%.5f%% (when num_items=%d), actual bloom filter size=%d bytes",
-        $m, $k, $res->[2]{actual_p}*100, $res->[2]{n}, $res->[2]{actual_bloom_size};
+    log_info "Will be creating bloom filter with num_bits (m)=%d (actual %d), num_hashes (k)=%d, actual false-positive rate=%.5f%% (when num_items=%d), actual bloom filter size=%d bytes",
+        $m, $res->[2]{actual_m}, $k, $res->[2]{actual_p}*100, $res->[2]{n}, $res->[2]{actual_bloom_size};
 
     my $bf = Algorithm::BloomFilter->new($m, $k);
     my $i = 0;
