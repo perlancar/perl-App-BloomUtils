@@ -173,7 +173,7 @@ _
         },
     },
     args_rels => {
-        choose_one => [qw/num_hashes/],
+        choose_one => [qw/num_hashes num_hashes_to_bits_per_item_ratio/],
     },
 };
 sub bloom_filter_calculator {
@@ -183,7 +183,10 @@ sub bloom_filter_calculator {
     my $fp_rate   = $args{false_positive_rate};
 
     my $num_bits = $num_items * log(1/$fp_rate)/ log(2)**2;
-    my $num_hashes = $args{num_hashes} // ($num_bits / $num_items * log(2));
+    my $num_bits_per_item = $num_bits / $num_items;
+    my $num_hashes = $args{num_hashes} //
+        (defined $args{num_hashes_to_bits_per_item_ratio} ? $args{num_hashes_to_bits_per_item_ratio}*$num_bits_per_item : undef) //
+        ($num_bits / $num_items * log(2));
 
     [200, "OK", {
         num_bits   => $num_bits,
