@@ -233,6 +233,8 @@ $SPEC{bloom_filter_calculator} = {
     },
 };
 sub bloom_filter_calculator {
+    require Algorithm::BloomFilter;
+
     my %args = @_;
 
     my $num_hashes_to_bits_per_item_ratio = $args{num_hashes_to_bits_per_item_ratio};
@@ -249,8 +251,10 @@ sub bloom_filter_calculator {
     $num_hashes_to_bits_per_item_ratio //= $num_hashes / $num_bits_per_item;
 
     my $actual_num_hashes = ceil($num_hashes);
-    my $num_bits_2power = sprintf "%.6f", (log($num_bits) / log(2));
-    my $actual_num_bits = 2**ceil($num_bits_2power);
+
+    my $bloom = Algorithm::BloomFilter->new($num_bits, $actual_num_hashes);
+    my $actual_bloom_size = length($bloom->serialize);
+    my $actual_num_bits = ($actual_bloom_size - 3)/8;
     my $actual_fp_rate = (1 - exp(-$actual_num_hashes*$num_items/$actual_num_bits))**$actual_num_hashes;
     my $actual_bloom_size = ($actual_num_bits/8) + 3;
 
