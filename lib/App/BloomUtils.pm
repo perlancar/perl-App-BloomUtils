@@ -68,7 +68,7 @@ _
             cmdline_aliases => {n=>{}},
         },
         false_positive_rate => {
-            schema => 'percent*',
+            schema => ['float*', max=>0.5],
             cmdline_aliases => {
                 fp_rate => {},
                 p => {},
@@ -211,7 +211,7 @@ _
             cmdline_aliases => {n=>{}},
         },
         false_positive_rate => {
-            schema => 'num*',
+            schema => ['float*', max=>0.5],
             default => 0.02,
             cmdline_aliases => {
                 fp_rate => {},
