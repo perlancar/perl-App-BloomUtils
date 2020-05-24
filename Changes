@@ -1,3 +1,9 @@
+0.006   2020-05-24  Released-By: PERLANCAR; Urgency: medium
+
+	- Use user-selected m & k if specified, otherwise
+	  Algorithm::BloomFilter will choose yet another value.
+
+
 0.005   2020-05-24  Released-By: PERLANCAR; Urgency: medium
 
 	- [bugfix] We need to create the Algorithm::BloomFilter instance to
