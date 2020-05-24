@@ -10,9 +10,11 @@ use strict;
 use warnings;
 use Log::ger;
 
+use POSIX qw(ceil);
+
 our %SPEC;
 
-my $desc = <<'_';
+my $desc1 = <<'_';
 
 You supply lines of text from STDIN and it will output the bloom filter bits on
 STDOUT. You can also customize `num_bits` (`m`) and `num_hashes` (`k`), or, more
@@ -40,6 +42,16 @@ easily, `num_items` and `fp_rate`. Some rules of thumb to remember:
 
 Ref: https://corte.si/posts/code/bloom-filter-rules-of-thumb/index.html
 
+**FAQ**
+
+* Why does two different false positive rates (e.g. 1% and 0.1%) give the same bloom filter size?
+
+  The parameter `m` is rounded upwards to the nearest power of 2 (e.g. 1024*8
+  bits becomes 1024*8 bits but 1025*8 becomes 2048*8 bits), so sometimes two
+  false positive rates with different `m` get rounded to the same value of `m`.
+  Use the `bloom_filter_calculator` routine to see the `actual_m` and `actual_p`
+  (actual false-positive rate).
+
 _
 
 $SPEC{gen_bloom_filter} = {
@@ -50,20 +62,20 @@ $SPEC{gen_bloom_filter} = {
         num_bits => {
             description => <<'_',
 
-The default is 80000 (generates a ~10KB bloom filter). If you supply 10,000 items
-(meaning 1 byte per 1 item) then the false positive rate will be ~2%. If you
-supply fewer items the false positive rate is smaller and if you supply more
-than 10,000 items the false positive rate will be higher.
+The default is 16384*8 bits (generates a ~16KB bloom filter). If you supply 16k
+items (meaning 1 byte per 1 item) then the false positive rate will be ~2%. If
+you supply fewer items the false positive rate is smaller and if you supply more
+than 16k items the false positive rate will be higher.
 
 _
             schema => 'uint*',
-            #default => 8*10000,
+            #default => 8*16384,
             cmdline_aliases => {m=>{}},
         },
         num_hashes => {
-            schema => 'num*',
+            schema => 'posint*',
             cmdline_aliases => {k=>{}},
-            #default => 5.7,
+            #default => 6,
         },
         num_items => {
             schema => 'uint*',
@@ -87,7 +99,7 @@ _
     },
     examples => [
         {
-            summary => 'Create a bloom filter for 100k items and 0.1% false-positive rate',
+            summary => 'Create a bloom filter for 100k items and 0.1% maximum false-positive rate',
             argv => [qw/--num-items 100000 --fp-rate 0.1%/],
             'x.doc.show_result' => 0,
             test => 0,
@@ -114,8 +126,8 @@ sub gen_bloom_filter {
         $m = int($res->[2]{m});
         $k = $res->[2]{k};
     } else {
-        $m = $args{num_bits} // 80_000;
-        $k = $args{num_hashes} // 5.7;
+        $m = $args{num_bits} // 16384*8;
+        $k = $args{num_hashes} // 6;
     }
     log_trace "Will be creating bloom filter with m=%d, k=%.1f", $m, $k;
 
@@ -190,6 +202,11 @@ $SPEC{bloom_filter_calculator} = {
             req => 1,
             cmdline_aliases => {n=>{}},
         },
+        num_bits => {
+            summary => 'Number of bits to set for the bloom filter',
+            schema => 'posint*',
+            cmdline_aliases => {m=>{}},
+        },
         false_positive_rate => {
             schema => ['float*', max=>0.5],
             default => 0.02,
@@ -199,45 +216,67 @@ $SPEC{bloom_filter_calculator} = {
             },
         },
         num_hashes => {
-            schema => 'num*',
+            schema => 'posint*',
             cmdline_aliases => {k=>{}},
         },
         num_hashes_to_bits_per_item_ratio => {
             summary => '0.7 (the default) is optimal',
             schema => 'num*',
-            default => 0.7,
         },
     },
     args_rels => {
-        choose_one => [qw/num_hashes num_hashes_to_bits_per_item_ratio/],
+        'choose_one&' => [
+            [qw/num_hashes num_hashes_to_bits_per_item_ratio/],
+        ],
     },
 };
 sub bloom_filter_calculator {
     my %args = @_;
 
-    my $num_items = $args{num_items};
-    my $fp_rate   = $args{false_positive_rate};
+    my $num_hashes_to_bits_per_item_ratio = $args{num_hashes_to_bits_per_item_ratio};
+    $num_hashes_to_bits_per_item_ratio //= 0.7 unless defined($args{num_bits}) && defined($args{num_items});
 
-    my $num_bits = $num_items * log(1/$fp_rate)/ log(2)**2;
+    my $num_items = $args{num_items};
+    my $fp_rate   = $args{false_positive_rate} // 0.02;
+    my $num_bits = $args{num_bits} // ($num_items * log(1/$fp_rate)/ log(2)**2);
+
     my $num_bits_per_item = $num_bits / $num_items;
     my $num_hashes = $args{num_hashes} //
-        (defined $args{num_hashes_to_bits_per_item_ratio} ? $args{num_hashes_to_bits_per_item_ratio}*$num_bits_per_item : undef) //
+        (defined $num_hashes_to_bits_per_item_ratio ? $num_hashes_to_bits_per_item_ratio*$num_bits_per_item : undef) //
         ($num_bits / $num_items * log(2));
-    my $num_hashes_to_bits_per_item_ratio = $args{num_hashes_to_bits_per_item_ratio} //
-        $num_hashes / $num_bits_per_item;
+    $num_hashes_to_bits_per_item_ratio //= $num_hashes / $num_bits_per_item;
+
+    my $actual_num_hashes = ceil($num_hashes);
+    my $num_bits_2power = sprintf "%.6f", (log($num_bits) / log(2));
+    my $actual_num_bits = 2**ceil($num_bits_2power);
+    my $actual_fp_rate = (1 - exp(-$actual_num_hashes*$num_items/$actual_num_bits))**$actual_num_hashes;
+    my $actual_bloom_size = ($actual_num_bits/8) + 3;
 
     [200, "OK", {
         num_bits   => $num_bits,
         m          => $num_bits,
+
         num_items  => $num_items,
         n          => $num_items,
+
         num_hashes => $num_hashes,
-        num_hashes_to_bits_per_item_ratio => $num_hashes_to_bits_per_item_ratio,
         k          => $num_hashes,
+
+        num_hashes_to_bits_per_item_ratio => $num_hashes_to_bits_per_item_ratio,
+
         fp_rate    => $fp_rate,
         p          => $fp_rate,
+
         num_bits_per_item => $num_bits / $num_items,
         'm/n'             => $num_bits / $num_items,
+
+        actual_num_bits   => $actual_num_bits,
+        actual_m          => $actual_num_bits,
+        actual_num_hashes => ceil($num_hashes),
+        actual_k          => ceil($num_hashes),
+        actual_fp_rate    => $actual_fp_rate,
+        actual_p          => $actual_fp_rate,
+        actual_bloom_size => $actual_bloom_size,
     }];
 }
 
