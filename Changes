@@ -1,3 +1,18 @@
+0.004   2020-05-24  Released-By: PERLANCAR; Urgency: medium
+
+	- [cil gen-bloom-filter] Show information on actual m/k/p/size.
+
+	- [cli bloom-filter-calculator] Return actual m, k, p.
+
+	- [ux] Add shorter aliases for the CLIs: bloomcalc, bloomchk,
+	  bloomgen.
+
+	- Use the same description for gen-bloom-filter and
+	  bloom-filter-calculator.
+
+	- Tweak Rinci schema.
+
+
 0.003   2020-05-24  Released-By: PERLANCAR; Urgency: medium
 
 	[cli gen-bloom-filter]
