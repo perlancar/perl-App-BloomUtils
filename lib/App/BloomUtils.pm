@@ -12,10 +12,7 @@ use Log::ger;
 
 our %SPEC;
 
-$SPEC{gen_bloom_filter} = {
-    v => 1.1,
-    summary => 'Generate bloom filter',
-    description => <<'_',
+my $desc = <<'_';
 
 You supply lines of text from STDIN and it will output the bloom filter bits on
 STDOUT. You can also customize `num_bits` (`m`) and `num_hashes` (`k`), or, more
@@ -44,6 +41,11 @@ easily, `num_items` and `fp_rate`. Some rules of thumb to remember:
 Ref: https://corte.si/posts/code/bloom-filter-rules-of-thumb/index.html
 
 _
+
+$SPEC{gen_bloom_filter} = {
+    v => 1.1,
+    summary => 'Generate bloom filter',
+    description => $desc1,
     args => {
         num_bits => {
             description => <<'_',
@@ -179,29 +181,7 @@ sub check_with_bloom_filter {
 $SPEC{bloom_filter_calculator} = {
     v => 1.1,
     summary => 'Help calculate num_bits (m) and num_hashes (k)',
-    description => <<'_',
-
-Bloom filter is setup using two parameters: `num_bits` (`m`) which is the size
-of the bloom filter (in bits) and `num_hashes` (`k`) which is the number of hash
-functions to use which will determine the write and lookup speed.
-
-Some rules of thumb:
-
-* One byte per item in the input set gives about a 2% false positive rate. So if
-  you expect two have 1024 elements, create a 1KB bloom filter with about 2%
-  false positive rate. For other false positive rates:
-
-    1%    -  9.6 bits per item
-    0.1%  - 14.4 bits per item
-    0.01% - 19.2 bits per item
-
-* Optimal number of hash functions is 0.7 times number of bits per item.
-
-* What is an acceptable false positive rate? This depends on your needs.
-
-Ref: https://corte.si/posts/code/bloom-filter-rules-of-thumb/index.html
-
-_
+    description => $desc1,
     args => {
         num_items => {
             summary => 'Expected number of items to add to bloom filter',
@@ -260,7 +240,6 @@ sub bloom_filter_calculator {
         'm/n'             => $num_bits / $num_items,
     }];
 }
-
 
 1;
 #ABSTRACT: Utilities related to bloom filters
