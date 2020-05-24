@@ -68,7 +68,7 @@ you supply fewer items the false positive rate is smaller and if you supply more
 than 16k items the false positive rate will be higher.
 
 _
-            schema => 'uint*',
+            schema => 'posint*',
             #default => 8*16384,
             cmdline_aliases => {m=>{}},
         },
@@ -78,7 +78,7 @@ _
             #default => 6,
         },
         num_items => {
-            schema => 'uint*',
+            schema => 'posint*',
             cmdline_aliases => {n=>{}},
         },
         false_positive_rate => {
@@ -91,15 +91,11 @@ _
     },
     'cmdline.skip_format' => 1,
     args_rels => {
-        'choose_all&' => [
-            [qw/num_bits num_hashes/],
-            [qw/num_items false_positive_rate/],
-        ],
-        'choose_one' => [qw/num_bits num_items/],
     },
     examples => [
         {
-            summary => 'Create a bloom filter for 100k items and 0.1% maximum false-positive rate',
+            summary => 'Create a bloom filter for 100k items and 0.1% maximum false-positive rate '.
+                '(actual bloom size and false-positive rate will be shown on stderr)',
             argv => [qw/--num-items 100000 --fp-rate 0.1%/],
             'x.doc.show_result' => 0,
             test => 0,
@@ -114,22 +110,28 @@ sub gen_bloom_filter {
 
     my %args = @_;
 
-    my ($m, $k);
-
+    my $res;
     if (defined $args{num_items}) {
-        my $res = bloom_filter_calculator(
+        $res = bloom_filter_calculator(
             num_items => $args{num_items},
+            num_bits => $args{num_bits},
+            num_hashes => $args{num_hashes},
             false_positive_rate => $args{false_positive_rate},
             num_hashes_to_bits_per_item_ratio => 0.7,
         );
-        return $res unless $res->[0] == 200;
-        $m = int($res->[2]{m});
-        $k = $res->[2]{k};
     } else {
-        $m = $args{num_bits} // 16384*8;
-        $k = $args{num_hashes} // 6;
+        $res = bloom_filter_calculator(
+            num_bits => $args{num_bits} // 16384*8,
+            num_hashes => $args{num_hashes} // 6,
+
+            num_items => int($args{num_bits} / 8),
+        );
     }
-    log_trace "Will be creating bloom filter with m=%d, k=%.1f", $m, $k;
+    return $res unless $res->[0] == 200;
+    my $m = $res->[2]{actual_m};
+    my $k = $res->[2]{actual_k};
+    log_info "Will be creating bloom filter with num_bits (m)=%d, num_hashes (k)=%d, actual false-positive rate=%.5f%% (when num_items=%d), bloom filter size=%d bytes",
+        $m, $k, $res->[2]{actual_p}*100, $res->[2]{n}, $res->[2]{actual_bloom_size};
 
     my $bf = Algorithm::BloomFilter->new($m, $k);
     my $i = 0;
