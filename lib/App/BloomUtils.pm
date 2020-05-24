@@ -254,9 +254,8 @@ sub bloom_filter_calculator {
 
     my $bloom = Algorithm::BloomFilter->new($num_bits, $actual_num_hashes);
     my $actual_bloom_size = length($bloom->serialize);
-    my $actual_num_bits = ($actual_bloom_size - 3)/8;
+    my $actual_num_bits = ($actual_bloom_size - 3)*8;
     my $actual_fp_rate = (1 - exp(-$actual_num_hashes*$num_items/$actual_num_bits))**$actual_num_hashes;
-    my $actual_bloom_size = ($actual_num_bits/8) + 3;
 
     [200, "OK", {
         num_bits   => $num_bits,
